@@ -8,9 +8,8 @@ const versusGameSchema = new mongoose.Schema({
     wordLength: {
         type: Number,
         required: true,
-        default: 5,
-        min: 4,
-        max: 8
+        min: 1,
+        max: 6
     },
     creator: {
         type: mongoose.Schema.Types.ObjectId,

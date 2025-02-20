@@ -9,7 +9,13 @@ const userSchema = new mongoose.Schema({
         gamesPlayed: { type: Number, default: 0 },
         gamesWon: { type: Number, default: 0 },
         streak: { type: Number, default: 0 },
-        winRate: { type: Number, default: 0 }
+        bestStreak: { type: Number, default: 0 },
+        winRate: { type: Number, default: 0 },
+        versusPlayed: { type: Number, default: 0 },
+        versusWon: { type: Number, default: 0 },
+        versusWinRate: { type: Number, default: 0 },
+        versusStreak: { type: Number, default: 0 },
+        versusBestStreak: { type: Number, default: 0 }
     },
     createdAt: {
         type: Date,

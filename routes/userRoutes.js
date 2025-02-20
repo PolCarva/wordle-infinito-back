@@ -17,7 +17,20 @@ router.post('/register', async (req, res) => {
         }
 
         // Crear nuevo usuario
-        const user = new User({ username, email, password });
+        const user = new User({ 
+            username, 
+            email, 
+            password,
+            stats: {
+                gamesPlayed: 0,
+                gamesWon: 0,
+                streak: 0,
+                winRate: 0,
+                versusPlayed: 0,
+                versusWon: 0,
+                versusWinRate: 0
+            }
+        });
         await user.save();
 
         // Generar token
@@ -27,7 +40,14 @@ router.post('/register', async (req, res) => {
             { expiresIn: '24h' }
         );
 
-        res.status(201).json({ token, userId: user._id });
+        // Devolver la misma información que el login
+        res.status(201).json({ 
+            token,
+            userId: user._id,
+            email: user.email,
+            username: user.username,
+            stats: user.stats
+        });
     } catch (error) {
         res.status(500).json({ message: 'Error en el servidor' });
     }
@@ -37,37 +57,44 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
-        
-        // Buscar usuario
         const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(401).json({ message: 'Credenciales inválidas' });
+        
+        if (!user || !(await user.comparePassword(password))) {
+            return res.status(401).json({ message: 'Email o contraseña incorrectos' });
         }
 
-        // Verificar contraseña
-        const isMatch = await user.comparePassword(password);
-        if (!isMatch) {
-            return res.status(401).json({ message: 'Credenciales inválidas' });
-        }
-
-        // Generar token
         const token = jwt.sign(
             { userId: user._id },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
 
-        res.json({ 
-            token, 
+        // Asegurarnos de que todos los valores de stats tengan un valor por defecto
+        const stats = {
+            gamesPlayed: user.stats?.gamesPlayed || 0,
+            gamesWon: user.stats?.gamesWon || 0,
+            streak: user.stats?.streak || 0,
+            bestStreak: user.stats?.bestStreak || 0,
+            winRate: user.stats?.winRate || 0,
+            versusPlayed: user.stats?.versusPlayed || 0,
+            versusWon: user.stats?.versusWon || 0,
+            versusWinRate: user.stats?.versusWinRate || 0,
+            versusStreak: user.stats?.versusStreak || 0,
+            versusBestStreak: user.stats?.versusBestStreak || 0
+        };
+
+        // Actualizar las stats en la base de datos si hay valores null
+        if (Object.values(user.stats || {}).some(val => val === null)) {
+            user.stats = stats;
+            await user.save();
+        }
+
+        res.json({
+            token,
             userId: user._id,
             email: user.email,
             username: user.username,
-            stats: user.stats || {
-                gamesPlayed: 0,
-                gamesWon: 0,
-                streak: 0,
-                winRate: 0
-            }
+            stats
         });
     } catch (error) {
         res.status(500).json({ message: 'Error en el servidor' });
@@ -97,24 +124,36 @@ router.get('/stats/:userId', async (req, res) => {
 // Actualizar estadísticas
 router.put('/stats/:userId', async (req, res) => {
     try {
-        const { gamesPlayed, gamesWon, streak } = req.body;
         const user = await User.findById(req.params.userId);
-        
         if (!user) {
             return res.status(404).json({ message: 'Usuario no encontrado' });
         }
 
+        const { gamesPlayed, gamesWon, streak, winRate } = req.body;
+        
+        // Actualizar mejor racha normal si la actual la supera
+        const bestStreak = Math.max(streak, user.stats?.bestStreak || 0);
+        
+        // Preservar TODAS las estadísticas existentes
         user.stats = {
             gamesPlayed,
             gamesWon,
             streak,
-            winRate: gamesPlayed > 0 ? (gamesWon / gamesPlayed) * 100 : 0
+            bestStreak,
+            winRate,
+            // Preservar stats de versus
+            versusPlayed: user.stats?.versusPlayed || 0,
+            versusWon: user.stats?.versusWon || 0,
+            versusWinRate: user.stats?.versusWinRate || 0,
+            versusStreak: user.stats?.versusStreak || 0,
+            versusBestStreak: user.stats?.versusBestStreak || 0
         };
-
+        
         await user.save();
         res.json(user.stats);
     } catch (error) {
-        res.status(500).json({ message: 'Error en el servidor' });
+        console.error('Error actualizando estadísticas:', error);
+        res.status(500).json({ message: 'Error actualizando estadísticas' });
     }
 });
 
@@ -133,11 +172,18 @@ router.get('/profile/:userId', async (req, res) => {
                 gamesPlayed: user.stats?.gamesPlayed || 0,
                 gamesWon: user.stats?.gamesWon || 0,
                 streak: user.stats?.streak || 0,
-                winRate: user.stats?.winRate || 0
+                bestStreak: user.stats?.bestStreak || 0,
+                winRate: user.stats?.winRate || 0,
+                versusPlayed: user.stats?.versusPlayed || 0,
+                versusWon: user.stats?.versusWon || 0,
+                versusWinRate: user.stats?.versusWinRate || 0,
+                versusStreak: user.stats?.versusStreak || 0,
+                versusBestStreak: user.stats?.versusBestStreak || 0
             }
         });
     } catch (error) {
-        res.status(500).json({ message: 'Error en el servidor' });
+        console.error('Error en el servidor:', error);
+        res.status(500).json({ message: 'Error en el servidor', error: error.message });
     }
 });
 
@@ -145,7 +191,9 @@ router.get('/profile/:userId', async (req, res) => {
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: process.env.GOOGLE_CALLBACK_URL
+    callbackURL: process.env.NODE_ENV === 'production' 
+        ? process.env.GOOGLE_CALLBACK_URL 
+        : 'http://localhost:5000/api/users/auth/google/callback'
   },
   async function(accessToken, refreshToken, profile, cb) {
     try {
@@ -196,7 +244,12 @@ router.get('/auth/google/callback',
         stats: JSON.stringify(stats)
     });
     
-    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?${queryParams}`);
+    // Usar URL de desarrollo o producción según el entorno
+    const frontendURL = process.env.NODE_ENV === 'production'
+        ? process.env.FRONTEND_URL
+        : 'http://localhost:3000';
+    
+    res.redirect(`${frontendURL}/auth/callback?${queryParams}`);
   }
 );
 

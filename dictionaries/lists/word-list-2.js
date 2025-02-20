@@ -1,4 +1,4 @@
-export const WORD_LIST_2 = [
+module.exports = [
   "SI",
   "NO",
   "YA",

@@ -4,6 +4,13 @@ const WORD_LIST_4 = require('./lists/word-list-4');
 const ACCEPTED_WORDS_4 = require('./accepted/accepted-words-4');
 
 const DICTIONARIES = {
+    3: {
+        common: WORD_LIST_4,
+        accepted: ACCEPTED_WORDS_4,
+        config: {
+            extraAttempts: 6,
+        }
+    },
     4: {
         common: WORD_LIST_4,
         accepted: ACCEPTED_WORDS_4,

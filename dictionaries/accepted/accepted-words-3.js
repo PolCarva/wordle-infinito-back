@@ -1,4 +1,4 @@
-export const ACCEPTED_WORDS_3 = [
+module.exports = [
   "SOL", "MAR", "LUZ", "PAN", "DOS", "VER", "PAZ", "VOZ", "DIA", "MES",
   "HOY", "FIN", "MIL", "UNO", "VIA", "PIE", "OJO", "RIO", "CAR", "BAR",
   "GAS", "PEZ", "RED", "SUR", "TEA", "UVA", "ZOO", "BOX", "FAN", "JET",

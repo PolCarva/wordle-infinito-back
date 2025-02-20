@@ -1,4 +1,4 @@
-export const ACCEPTED_WORDS_1 = [
+module.exports = [
   "A",
   "B",
   "C",

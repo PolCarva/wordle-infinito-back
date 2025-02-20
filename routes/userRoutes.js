@@ -191,20 +191,29 @@ router.get('/profile/:userId', async (req, res) => {
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: process.env.NODE_ENV === 'production' 
-        ? process.env.GOOGLE_CALLBACK_URL 
-        : 'http://localhost:5000/api/users/auth/google/callback'
+    callbackURL: process.env.GOOGLE_CALLBACK_URL,
+    passReqToCallback: true
   },
-  async function(accessToken, refreshToken, profile, cb) {
+  async function(request, accessToken, refreshToken, profile, cb) {
     try {
         let user = await User.findOne({ email: profile.emails[0].value });
         
         if (!user) {
-            // Crear nuevo usuario si no existe
             user = await User.create({
                 username: profile.displayName,
                 email: profile.emails[0].value,
                 password: 'google-auth-' + Math.random().toString(36).substring(7),
+                stats: {
+                    gamesPlayed: 0,
+                    gamesWon: 0,
+                    streak: 0,
+                    winRate: 0,
+                    versusPlayed: 0,
+                    versusWon: 0,
+                    versusWinRate: 0,
+                    versusStreak: 0,
+                    versusBestStreak: 0
+                }
             });
         }
         
@@ -233,7 +242,12 @@ router.get('/auth/google/callback',
         gamesPlayed: 0,
         gamesWon: 0,
         streak: 0,
-        winRate: 0
+        winRate: 0,
+        versusPlayed: 0,
+        versusWon: 0,
+        versusWinRate: 0,
+        versusStreak: 0,
+        versusBestStreak: 0
     };
 
     const queryParams = new URLSearchParams({
@@ -244,12 +258,7 @@ router.get('/auth/google/callback',
         stats: JSON.stringify(stats)
     });
     
-    // Usar URL de desarrollo o producción según el entorno
-    const frontendURL = process.env.NODE_ENV === 'production'
-        ? process.env.FRONTEND_URL
-        : 'http://localhost:3000';
-    
-    res.redirect(`${frontendURL}/auth/callback?${queryParams}`);
+    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?${queryParams}`);
   }
 );
 

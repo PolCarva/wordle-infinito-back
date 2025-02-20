@@ -11306,4 +11306,4 @@ module.exports = [
     "ÑUTAS",
     "ÑUTOS",
     "ÑUZCO"
-  ]
+  ].filter(word => word.length === 5)

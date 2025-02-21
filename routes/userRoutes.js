@@ -187,6 +187,55 @@ router.get('/profile/:userId', async (req, res) => {
     }
 });
 
+// Obtener leaderboard
+router.get('/leaderboard', async (req, res) => {
+    try {
+        // Obtener los mejores jugadores en modo normal
+        const normalLeaderboard = await User.find({
+            'stats.gamesPlayed': { $gt: 0 } // Solo jugadores que han jugado
+        })
+        .select('username stats.gamesWon stats.gamesPlayed stats.winRate stats.bestStreak')
+        .sort({ 
+            'stats.gamesWon': -1,  // Ordenar por victorias
+            'stats.winRate': -1    // Desempatar por ratio de victorias
+        })
+        .limit(10);
+
+        // Obtener los mejores jugadores en modo versus
+        const versusLeaderboard = await User.find({
+            'stats.versusPlayed': { $gt: 0 } // Solo jugadores que han jugado versus
+        })
+        .select('username stats.versusWon stats.versusPlayed stats.versusWinRate stats.versusBestStreak')
+        .sort({ 
+            'stats.versusWon': -1,      // Ordenar por victorias en versus
+            'stats.versusWinRate': -1    // Desempatar por ratio de victorias
+        })
+        .limit(10);
+
+        res.json({
+            normal: normalLeaderboard.map(user => ({
+                username: user.username || 'Anónimo',
+                userId: user._id,
+                gamesWon: user.stats.gamesWon,
+                gamesPlayed: user.stats.gamesPlayed,
+                winRate: user.stats.winRate,
+                bestStreak: user.stats.bestStreak
+            })),
+            versus: versusLeaderboard.map(user => ({
+                username: user.username || 'Anónimo',
+                userId: user._id,
+                gamesWon: user.stats.versusWon,
+                gamesPlayed: user.stats.versusPlayed,
+                winRate: user.stats.versusWinRate,
+                bestStreak: user.stats.versusBestStreak
+            }))
+        });
+    } catch (error) {
+        console.error('Error obteniendo leaderboard:', error);
+        res.status(500).json({ message: 'Error obteniendo el leaderboard' });
+    }
+});
+
 // Configuración de Passport Google
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,

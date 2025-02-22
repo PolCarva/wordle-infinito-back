@@ -10,6 +10,14 @@ const WORD_LIST_6 = require('./lists/word-list-6');
 const ACCEPTED_WORDS_6 = require('./accepted/accepted-words-6');
 const WORD_LIST = require('./lists/word-list');
 const ACCEPTED_WORDS = require('./accepted/accepted-words');
+const boludle = require('./lists/word-list-boludle');
+const WORD_LIST_BOLUDLE = boludle.getWordList();
+
+// Asegurarnos de que todas las palabras del Boludle sean válidas para intentos
+const ACCEPTED_WORDS_BOLUDLE = Array.from(new Set([
+  ...ACCEPTED_WORDS, 
+  ...WORD_LIST_BOLUDLE
+]));
 
 const DICTIONARIES = {
     1: {
@@ -50,6 +58,13 @@ const DICTIONARIES = {
     6: {
         common: WORD_LIST_6,
         accepted: ACCEPTED_WORDS_6,
+        config: {
+            extraAttempts: 5,
+        }
+    },
+    'boludle': {
+        common: WORD_LIST_BOLUDLE,
+        accepted: ACCEPTED_WORDS_BOLUDLE,
         config: {
             extraAttempts: 5,
         }

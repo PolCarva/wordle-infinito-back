@@ -30,4 +30,13 @@ router.get('/words/:length', (req, res) => {
     }
 });
 
+// Agregar esta nueva ruta
+router.get('/boludle-words', (req, res) => {
+    const boludle = require('../dictionaries/lists/word-list-boludle');
+    res.json({ 
+        words: boludle.getWordList(),
+        description: boludle.words.map(w => w.desc)
+    });
+});
+
 module.exports = router; 

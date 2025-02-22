@@ -289,4 +289,74 @@ router.post('/game-over', async (req, res) => {
     }
 });
 
+router.post('/rematch/:gameId', async (req, res) => {
+  try {
+    const { gameId } = req.params;
+    const { userId } = req.body;
+    
+    const game = await VersusGame.findById(gameId);
+    if (!game) {
+      return res.status(404).json({ message: 'Juego no encontrado' });
+    }
+
+    const isCreator = game.creator.toString() === userId;  // Convertir a string para comparar
+    if (isCreator) {
+      game.creatorWantsRematch = true;
+    } else {
+      game.opponentWantsRematch = true;
+    }
+
+    // Si ambos quieren revancha, crear nuevo juego
+    if (game.creatorWantsRematch && game.opponentWantsRematch) {
+      // Obtener nueva palabra de la misma longitud
+      const { words } = await getDictionary(game.wordLength);
+      const newWord = words[Math.floor(Math.random() * words.length)];
+
+      const newGame = new VersusGame({
+        word: newWord.toUpperCase(),
+        wordLength: game.wordLength,  // Mantener la misma longitud
+        creator: game.creator,
+        opponent: game.opponent,
+        status: 'ready_to_start',  // Volver al estado de preparación
+        creatorGuesses: [],
+        opponentGuesses: [],
+        gameCode: game.gameCode,
+        creatorReady: false,  // Resetear los estados de ready
+        opponentReady: false
+      });
+      await newGame.save();
+      return res.json(newGame);
+    }
+
+    await game.save();
+    res.json(game);
+  } catch (error) {
+    console.error('Error en rematch:', error);
+    res.status(500).json({ message: 'Error en el servidor' });
+  }
+});
+
+router.post('/cancel-rematch/:gameId', async (req, res) => {
+  try {
+    const { gameId } = req.params;
+    const { userId } = req.body;
+    
+    const game = await VersusGame.findById(gameId);
+    if (!game) {
+      return res.status(404).json({ message: 'Juego no encontrado' });
+    }
+
+    if (game.creator === userId) {
+      game.creatorWantsRematch = false;
+    } else {
+      game.opponentWantsRematch = false;
+    }
+
+    await game.save();
+    res.json(game);
+  } catch (error) {
+    res.status(500).json({ message: 'Error en el servidor' });
+  }
+});
+
 module.exports = router; 

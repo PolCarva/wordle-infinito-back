@@ -71,7 +71,9 @@ const DICTIONARIES = {
     }
 };
 
-const AVAILABLE_LENGTHS = Object.keys(DICTIONARIES).map(Number);
+const AVAILABLE_LENGTHS = Object.keys(DICTIONARIES)
+    .filter(key => !isNaN(Number(key)))
+    .map(Number);
 
 function getDictionary(length, useRare = false) {
     const dictionary = DICTIONARIES[length];

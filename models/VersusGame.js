@@ -48,7 +48,9 @@ const versusGameSchema = new mongoose.Schema({
         type: Date,
         default: Date.now,
         expires: 3600 // El documento se eliminará después de 1 hora
-    }
+    },
+    creatorWantsRematch: { type: Boolean, default: false },
+    opponentWantsRematch: { type: Boolean, default: false }
 });
 
 module.exports = mongoose.model('VersusGame', versusGameSchema); 

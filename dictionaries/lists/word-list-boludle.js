@@ -86,6 +86,9 @@ module.exports = {
     { word: "VIGIL", desc: "policía, autoridad" },
     { word: "YUNTA", desc: "amigo, compañero cercano" },
     { word: "ZAFAR", desc: "escapar, salir de apuros" },
+    { word: "CHOTA", desc: "pene, falo" },
+    { word: "LARVA", desc: "pesado, insoportable" },
+    { word: "CUCHA", desc: "escuchá" }
   ].filter(item => item.word.length === 5),
 
   getWordList: function () {

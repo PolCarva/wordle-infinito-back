@@ -16,6 +16,11 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ message: 'Usuario o email ya existe' });
         }
 
+        // Validar longitud de contraseña
+        if (password.length < 6) {
+            return res.status(400).json({ message: 'La contraseña debe tener al menos 6 caracteres' });
+        }
+
         // Crear nuevo usuario
         const user = new User({ 
             username, 

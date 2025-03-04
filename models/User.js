@@ -4,7 +4,15 @@ const bcrypt = require('bcryptjs');
 const userSchema = new mongoose.Schema({
     username: String,
     email: String,
-    password: String,
+    password: {
+        type: String,
+        validate: {
+            validator: function(v) {
+                return v.length >= 6;
+            },
+            message: props => 'La contraseña debe tener al menos 6 caracteres'
+        }
+    },
     stats: {
         gamesPlayed: { type: Number, default: 0 },
         gamesWon: { type: Number, default: 0 },

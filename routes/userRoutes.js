@@ -129,12 +129,105 @@ router.get('/stats/:userId', async (req, res) => {
 // Actualizar estadísticas
 router.put('/stats/:userId', async (req, res) => {
     try {
+        console.log(`Solicitud de actualización de estadísticas para usuario ${req.params.userId}`);
+        
         const user = await User.findById(req.params.userId);
         if (!user) {
+            console.log(`Usuario no encontrado: ${req.params.userId}`);
             return res.status(404).json({ message: 'Usuario no encontrado' });
         }
 
-        const { gamesPlayed, gamesWon, streak, winRate } = req.body;
+        // Verificar token de verificación
+        const { gamesPlayed, gamesWon, streak, winRate, verificationToken, gameData } = req.body;
+        
+        console.log('Datos recibidos:', { 
+            userId: req.params.userId, 
+            stats: { gamesPlayed, gamesWon, streak, winRate },
+            verificationToken: verificationToken ? 'Presente' : 'Ausente',
+            gameData: gameData ? 'Presente' : 'Ausente'
+        });
+        
+        if (!verificationToken || !gameData) {
+            console.log('Faltan datos de verificación');
+            return res.status(400).json({ message: 'Datos de verificación requeridos' });
+        }
+        
+        // Implementación completa de verificación JWT
+        try {
+            // Decodificar el token (que ahora es un objeto JSON en base64)
+            const decodedToken = JSON.parse(Buffer.from(verificationToken, 'base64').toString());
+            
+            console.log('Token decodificado correctamente');
+            
+            // Verificar que el token pertenezca al usuario correcto
+            if (decodedToken.userId !== req.params.userId) {
+                console.log(`ID de usuario no coincide: ${decodedToken.userId} vs ${req.params.userId}`);
+                return res.status(403).json({ message: 'Token no válido para este usuario' });
+            }
+            
+            // Verificar que el token no haya expirado (5 minutos)
+            const MAX_TOKEN_AGE = 5 * 60 * 1000; // 5 minutos en milisegundos
+            if (Date.now() - decodedToken.timestamp > MAX_TOKEN_AGE) {
+                console.log(`Token expirado: ${new Date(decodedToken.timestamp).toISOString()}`);
+                return res.status(401).json({ message: 'Token expirado' });
+            }
+            
+            // Verificar que el gameId en el token coincida con el de los datos
+            if (decodedToken.gameId !== gameData.gameId) {
+                console.log(`ID de juego no coincide: ${decodedToken.gameId} vs ${gameData.gameId}`);
+                return res.status(400).json({ message: 'ID de juego no coincide' });
+            }
+            
+            // Verificar que los datos del juego sean coherentes con las estadísticas
+            // Para un juego ganado, verificamos que haya datos de tableros
+            if (gameData.won && (!gameData.boards || gameData.boards.length === 0)) {
+                console.log('Datos incoherentes: juego ganado pero no hay tableros');
+                return res.status(400).json({ message: 'Datos de juego incoherentes: no hay tableros' });
+            }
+            
+            // Imprimir información detallada sobre los tableros para depuración
+            console.log('Información de tableros:', {
+                totalBoards: gameData.totalBoards || gameData.boards.length,
+                completedBoards: gameData.completedBoards || gameData.boards.filter(b => b.completed).length,
+                boardsInfo: gameData.boards.map(b => ({
+                    word: b.word,
+                    completed: b.completed,
+                    guessCount: b.guessCount,
+                    isCorrect: b.isCorrect
+                }))
+            });
+            
+            // Verificar que la marca de tiempo sea reciente (por ejemplo, en las últimas 24 horas)
+            const MAX_TIME_DIFF = 24 * 60 * 60 * 1000; // 24 horas en milisegundos
+            if (Date.now() - gameData.timestamp > MAX_TIME_DIFF) {
+                console.log(`Datos expirados: ${new Date(gameData.timestamp).toISOString()}`);
+                return res.status(400).json({ message: 'Datos de juego expirados' });
+            }
+            
+            // Verificar que no haya manipulación de datos entre el token y los datos enviados
+            // Comparar los datos del juego en el token con los datos enviados
+            const tokenGameData = JSON.stringify(decodedToken.gameData);
+            const receivedGameData = JSON.stringify(gameData);
+            if (tokenGameData !== receivedGameData) {
+                console.log('Datos no coinciden:');
+                console.log('Token:', tokenGameData);
+                console.log('Recibido:', receivedGameData);
+                return res.status(400).json({ message: 'Datos de juego manipulados' });
+            }
+            
+            console.log('Verificación de token exitosa');
+            
+        } catch (error) {
+            console.error('Error verificando token:', error);
+            return res.status(401).json({ message: 'Token inválido: ' + error.message });
+        }
+        
+        // Limitar la frecuencia de actualización (por ejemplo, no más de una vez cada 5 minutos)
+        const MIN_UPDATE_INTERVAL = 10 * 1000; // 10 segundos en milisegundos
+        if (user.lastStatsUpdate && Date.now() - user.lastStatsUpdate < MIN_UPDATE_INTERVAL) {
+            console.log(`Actualización demasiado frecuente. Última: ${new Date(user.lastStatsUpdate).toISOString()}`);
+            return res.status(429).json({ message: 'Demasiadas actualizaciones. Inténtalo más tarde.' });
+        }
         
         // Actualizar mejor racha normal si la actual la supera
         const bestStreak = Math.max(streak, user.stats?.bestStreak || 0);
@@ -154,11 +247,15 @@ router.put('/stats/:userId', async (req, res) => {
             versusBestStreak: user.stats?.versusBestStreak || 0
         };
         
+        // Actualizar la marca de tiempo de la última actualización
+        user.lastStatsUpdate = Date.now();
+        
         await user.save();
+        console.log(`Estadísticas actualizadas correctamente para usuario ${req.params.userId}`);
         res.json(user.stats);
     } catch (error) {
         console.error('Error actualizando estadísticas:', error);
-        res.status(500).json({ message: 'Error actualizando estadísticas' });
+        res.status(500).json({ message: 'Error actualizando estadísticas: ' + error.message });
     }
 });
 

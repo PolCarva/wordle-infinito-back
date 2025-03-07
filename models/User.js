@@ -25,6 +25,10 @@ const userSchema = new mongoose.Schema({
         versusStreak: { type: Number, default: 0 },
         versusBestStreak: { type: Number, default: 0 }
     },
+    lastStatsUpdate: {
+        type: Date,
+        default: null
+    },
     createdAt: {
         type: Date,
         default: Date.now

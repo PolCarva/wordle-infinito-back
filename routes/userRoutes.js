@@ -51,6 +51,7 @@ router.post('/register', async (req, res) => {
             userId: user._id,
             email: user.email,
             username: user.username,
+            role: user.role || 'user',
             stats: user.stats
         });
     } catch (error) {
@@ -99,6 +100,7 @@ router.post('/login', async (req, res) => {
             userId: user._id,
             email: user.email,
             username: user.username,
+            role: user.role || 'user',
             stats
         });
     } catch (error) {
@@ -270,6 +272,7 @@ router.get('/profile/:userId', async (req, res) => {
         res.json({
             username: user.username,
             email: user.email,
+            role: user.role || 'user',
             stats: {
                 gamesPlayed: user.stats?.gamesPlayed || 0,
                 gamesWon: user.stats?.gamesWon || 0,
@@ -296,7 +299,7 @@ router.get('/leaderboard', async (req, res) => {
         const normalLeaderboard = await User.find({
             'stats.gamesPlayed': { $gt: 0 } // Solo jugadores que han jugado
         })
-        .select('username stats.gamesWon stats.gamesPlayed stats.winRate stats.bestStreak')
+        .select('username stats.gamesWon stats.gamesPlayed stats.winRate stats.bestStreak role')
         .sort({ 
             'stats.gamesWon': -1,  // Ordenar por victorias
             'stats.winRate': -1    // Desempatar por ratio de victorias
@@ -307,7 +310,7 @@ router.get('/leaderboard', async (req, res) => {
         const versusLeaderboard = await User.find({
             'stats.versusPlayed': { $gt: 0 } // Solo jugadores que han jugado versus
         })
-        .select('username stats.versusWon stats.versusPlayed stats.versusWinRate stats.versusBestStreak')
+        .select('username stats.versusWon stats.versusPlayed stats.versusWinRate stats.versusBestStreak role')
         .sort({ 
             'stats.versusWon': -1,      // Ordenar por victorias en versus
             'stats.versusWinRate': -1    // Desempatar por ratio de victorias
@@ -321,7 +324,8 @@ router.get('/leaderboard', async (req, res) => {
                 gamesWon: user.stats.gamesWon,
                 gamesPlayed: user.stats.gamesPlayed,
                 winRate: user.stats.winRate,
-                bestStreak: user.stats.bestStreak
+                bestStreak: user.stats.bestStreak,
+                role: user.role || 'user'
             })),
             versus: versusLeaderboard.map(user => ({
                 username: user.username || 'Anónimo',
@@ -329,7 +333,8 @@ router.get('/leaderboard', async (req, res) => {
                 gamesWon: user.stats.versusWon,
                 gamesPlayed: user.stats.versusPlayed,
                 winRate: user.stats.versusWinRate,
-                bestStreak: user.stats.versusBestStreak
+                bestStreak: user.stats.versusBestStreak,
+                role: user.role || 'user'
             }))
         });
     } catch (error) {
@@ -412,5 +417,86 @@ router.get('/auth/google/callback',
     res.redirect(`${process.env.FRONTEND_URL}/auth/callback?${queryParams}`);
   }
 );
+
+// Middleware para verificar si el usuario es administrador
+const isAdmin = async (req, res, next) => {
+    try {
+        console.log('Verificando permisos de administrador');
+        
+        // Verificar que el token sea válido
+        const token = req.headers.authorization?.split(' ')[1];
+        if (!token) {
+            console.log('No se proporcionó token de autorización');
+            return res.status(401).json({ message: 'No autorizado' });
+        }
+
+        // Decodificar el token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        console.log('Token decodificado:', { userId: decoded.userId });
+        
+        // Buscar el usuario
+        const user = await User.findById(decoded.userId);
+        if (!user) {
+            console.log('Usuario no encontrado:', decoded.userId);
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+        
+        console.log('Rol del usuario:', user.role);
+        
+        // Verificar si es administrador
+        if (user.role !== 'admin') {
+            console.log('Acceso denegado: el usuario no es administrador');
+            return res.status(403).json({ message: 'Acceso denegado: se requieren permisos de administrador' });
+        }
+        
+        // Si es administrador, continuar
+        console.log('Verificación de administrador exitosa');
+        req.adminUser = user;
+        next();
+    } catch (error) {
+        console.error('Error en verificación de administrador:', error);
+        return res.status(401).json({ message: 'Token inválido o expirado' });
+    }
+};
+
+// Ruta para actualizar el rol de un usuario (solo admin)
+router.put('/role/:userId', isAdmin, async (req, res) => {
+    try {
+        const { role } = req.body;
+        console.log(`Solicitud para cambiar rol de usuario ${req.params.userId} a ${role}`);
+        
+        // Validar que el rol sea válido
+        if (!['user', 'vip', 'mod', 'admin'].includes(role)) {
+            console.log(`Rol inválido: ${role}`);
+            return res.status(400).json({ message: 'Rol inválido' });
+        }
+        
+        // Buscar y actualizar el usuario
+        const user = await User.findById(req.params.userId);
+        if (!user) {
+            console.log(`Usuario no encontrado: ${req.params.userId}`);
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+        
+        // Guardar el rol anterior para el log
+        const previousRole = user.role || 'user';
+        
+        // Actualizar el rol
+        user.role = role;
+        await user.save();
+        
+        console.log(`Rol actualizado: ${previousRole} -> ${role} para usuario ${user.username || user._id}`);
+        
+        res.json({ 
+            message: 'Rol actualizado correctamente',
+            userId: user._id,
+            username: user.username,
+            role: user.role
+        });
+    } catch (error) {
+        console.error('Error actualizando rol:', error);
+        res.status(500).json({ message: 'Error actualizando rol' });
+    }
+});
 
 module.exports = router; 

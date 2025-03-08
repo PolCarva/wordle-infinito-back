@@ -13,6 +13,11 @@ const userSchema = new mongoose.Schema({
             message: props => 'La contraseña debe tener al menos 6 caracteres'
         }
     },
+    role: {
+        type: String,
+        enum: ['user', 'vip', 'mod', 'admin'],
+        default: 'user'
+    },
     stats: {
         gamesPlayed: { type: Number, default: 0 },
         gamesWon: { type: Number, default: 0 },
